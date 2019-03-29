@@ -4,13 +4,11 @@ COPY . .
 
 RUN go get -d -v
 
-ENV bin /go/bin/syslog2mqtt
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o  $bin
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o  /go/bin/syslog2mqtt
 
 FROM scratch
 
-COPY --from=builder $bin $bin
+COPY --from=builder /go/bin/syslog2mqtt /go/bin/syslog2mqtt
 
 USER 1000:1000
 
