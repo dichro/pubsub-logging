@@ -23,6 +23,6 @@ account with credentials that this program can use.
 
 An effective command-line looks like:
 
-`mqtt2bigquery --gcp_project scary-children-90210 --bq_table logs.syslog`
+`GOOGLE_APPLICATION_CREDENTIALS=/path/to/creds mqtt2bigquery --gcp_project scary-children-90210 --bq_table logs.syslog`
 
 ...if you accept defaults for listening ports and MQTT broker address.
