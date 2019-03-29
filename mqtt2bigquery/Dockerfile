@@ -8,7 +8,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflag
 
 FROM scratch
 
-COPY --from=builder /go/bin/mqtt2bigquery /go/bin/mqtt2bigquery
+COPY --from=builder /go/bin/mqtt2bigquery /go/bin/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 USER 1000:1000
 
