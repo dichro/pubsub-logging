@@ -119,6 +119,7 @@ func (b *Buffer) Stream(ctx context.Context, bq *bigquery.Client, table string, 
 			}
 			timeout.Stop()
 			glog.Infof("sending batch size %d of max %d to %s", len(batch), cap(batch), table)
+			// TODO(miki): make a rowID out of MQTT message ID and distinct fields in message.
 			if err := ins.Put(ctx, batch); err != nil {
 				glog.Error(err)
 			}
