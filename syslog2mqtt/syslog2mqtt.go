@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/dichro/pubsub-logging/pub"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,16 +28,6 @@ var (
 		Name:      "discard",
 		Help:      "count of syslog messages discarded",
 	})
-	publishers = prometheus.NewGauge(prometheus.GaugeOpts{
-		Subsystem: "mqtt",
-		Name:      "publish_outstanding",
-		Help:      "count of outstanding publish calls",
-	})
-	publishLatency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Subsystem: "mqtt",
-		Name:      "publish_latency",
-		Help:      "latency of publish calls",
-	}, []string{"result"})
 
 	syslogAddr = flag.String("syslog_listen", ":514", "address to listen on for syslog messages (addr:port)")
 	httpAddr   = flag.String("http_listen", ":8080", "address to listen on for http requests (addr:port)")
@@ -47,8 +38,6 @@ var (
 func init() {
 	prometheus.MustRegister(messageCount)
 	prometheus.MustRegister(dropCount)
-	prometheus.MustRegister(publishers)
-	prometheus.MustRegister(publishLatency)
 }
 
 func main() {
@@ -74,45 +63,33 @@ func main() {
 	if token := mqtt.Connect(); token.Wait() && token.Error() != nil {
 		glog.Fatal(token.Error())
 	}
-
-	go func() {
-		for msg := range ch {
-			messageCount.Inc()
-			msg["ReceivedTimestamp"] = time.Now()
-			var buf bytes.Buffer
-			if err := json.NewEncoder(&buf).Encode(msg); err != nil {
-				dropCount.Inc()
-				glog.Error(err)
-				continue
-			}
-			go func() {
-				publishers.Inc()
-				defer publishers.Dec()
-				start := time.Now()
-				token := mqtt.Publish(*mqttTopic, 1, false, buf.Bytes())
-				token.Wait()
-				elapsed := time.Now().Sub(start)
-				result := "OK"
-				if err := token.Error(); err != nil {
-					glog.Error(err)
-					result = "error"
-				}
-				publishLatency.WithLabelValues(result).Observe(float64(elapsed / time.Second))
-			}()
-			if glog.V(1) {
-				fmt.Println(time.Now())
-				keys := make([]string, 0, len(msg))
-				for key := range msg {
-					keys = append(keys, key)
-				}
-				sort.Strings(keys)
-				for _, k := range keys {
-					fmt.Printf("  %s: %q\n", k, msg[k])
-				}
-			}
-		}
-	}()
+	go decode(pub.New(mqtt, 1, false), ch)
 
 	http.Handle("/metrics", promhttp.Handler())
 	glog.Fatal(http.ListenAndServe(*httpAddr, nil))
+}
+
+func decode(p *pub.Publisher, ch syslog.LogPartsChannel) {
+	for msg := range ch {
+		messageCount.Inc()
+		msg["ReceivedTimestamp"] = time.Now()
+		var buf bytes.Buffer
+		if err := json.NewEncoder(&buf).Encode(msg); err != nil {
+			dropCount.Inc()
+			glog.Error(err)
+			continue
+		}
+		go p.Publish(*mqttTopic, buf.Bytes())
+		if glog.V(1) {
+			fmt.Println(time.Now())
+			keys := make([]string, 0, len(msg))
+			for key := range msg {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				fmt.Printf("  %s: %q\n", k, msg[k])
+			}
+		}
+	}
 }
