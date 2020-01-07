@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/fatih/structtag"
 	"github.com/golang/glog"
 )
 
@@ -50,6 +51,7 @@ type field struct {
 	parser   Parser
 }
 
+// Integer converts a JSON object to []bigquery.Value.
 type Record struct {
 	names map[string]field
 	count int
@@ -81,30 +83,38 @@ func (r *Record) ParseRecord(v interface{}) ([]bigquery.Value, error) {
 	return ret, nil
 }
 
-func (r *Record) addField(p Parser, name string, aliases ...string) {
+func (r *Record) addField(p Parser, names ...string) {
 	f := field{
 		parser:   p,
 		position: r.count,
 	}
 	r.count++
-	r.names[name] = f
-	for _, a := range aliases {
-		r.names[a] = f
+	for _, n := range names {
+		r.names[n] = f
 	}
 }
 
+// FromSchema creates a Record parser from a bigquery.Schema. The record parser is configured
+// to match JSON keys to column names, case-insensitively, unless the column's description
+// in Bigquery contains a struct-like tag resembling `json:"foo"`, in which case "foo" will
+// be used as the JSON key to match for this column.
 func FromSchema(s bigquery.Schema) (*Record, error) {
 	rp := newRecord()
 	for _, fs := range s {
-		n := fs.Name
-		ln := strings.ToLower(fs.Name)
+		names := []string{fs.Name, strings.ToLower(fs.Name)}
+		tags, err := structtag.Parse(fs.Description)
+		if err == nil {
+			if tag, err := tags.Get("json"); err == nil {
+				names = []string{tag.Name}
+			}
+		}
 		switch fs.Type {
 		case "STRING":
-			rp.addField(String{}, n, ln)
+			rp.addField(String{}, names...)
 		case "INTEGER":
-			rp.addField(Integer{}, n, ln)
+			rp.addField(Integer{}, names...)
 		case bigquery.TimestampFieldType:
-			rp.addField(Timestamp{}, n, ln)
+			rp.addField(Timestamp{}, names...)
 		default:
 			return nil, errors.New("unknown BQ schema type")
 		}
