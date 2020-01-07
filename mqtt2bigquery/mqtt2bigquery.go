@@ -18,12 +18,12 @@ import (
 
 var (
 	httpAddr   = flag.String("http_listen", ":8080", "address to listen on for http requests (addr:port)")
-	mqttAddr   = flag.String("mqtt_address", "tcp://mqtt:1883", "address of MQTT broker")
+	mqttAddr   = flag.String("mqtt_address", "tcp://mqtt:1883", "address of MQTT broker source")
 	mqttClient = flag.String("mqtt_client_id", "mqtt2bigquery", "client ID for MQTT subscription")
-	mqttTopic  = flag.String("mqtt_topic", "syslog/raw/json", "MQTT topic for raw syslog messages")
+	mqttTopic  = flag.String("mqtt_topic", "", "source MQTT topic")
 	mqttQoS    = flag.Int("mqtt_qos", 1, "qos to subscribe to topic with")
-	gcpProject = flag.String("gcp_project", "", "GCP BigQuery project ID to stream logs to")
-	bqTable    = flag.String("bq_table", "", "BigQuery table for syslog data (format: dataset.table)")
+	gcpProject = flag.String("gcp_project", "", "destination GCP BigQuery project ID")
+	bqTable    = flag.String("bq_table", "", "destination BigQuery table (format: dataset.table)")
 	batchDelay = flag.Duration("batch_max_delay", 5*time.Minute, "maximum delay allowed to batch log entries")
 	batchSize  = flag.Int("batch_max_size", 5000, "maximum number of log entries in batch")
 )
