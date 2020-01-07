@@ -8,10 +8,10 @@ This needs a pre-configured table in BigQuery with the following schema:
 <pre>
 ReceivedTimestamp	TIMESTAMP	NULLABLE
 Client	STRING	NULLABLE
-ClientTimestamp	TIMESTAMP	NULLABLE
-ClientHostname	STRING	NULLABLE
+Timestamp	TIMESTAMP	NULLABLE
+Hostname	STRING	NULLABLE
 Tag	STRING	NULLABLE
-Message	STRING	NULLABLE
+Content	STRING	NULLABLE
 Priority	INTEGER	NULLABLE
 Severity	INTEGER	NULLABLE
 Facility	INTEGER	NULLABLE
