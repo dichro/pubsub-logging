@@ -46,61 +46,63 @@ type Parser interface {
 	Parse(interface{}) (bigquery.Value, error)
 }
 
-type field struct {
+type Field struct {
 	position int
 	parser   Parser
 }
 
-// Integer converts a JSON object to []bigquery.Value.
 type Record struct {
-	names map[string]field
-	count int
+	count  int
+	fields map[string]Field
 }
 
-func newRecord() *Record {
-	return &Record{names: make(map[string]field)}
-}
-func (r *Record) Parse(v interface{}) (bigquery.Value, error) {
-	return r.ParseRecord(v)
-}
-
-func (r *Record) ParseRecord(v interface{}) ([]bigquery.Value, error) {
+func (r *Record) ParseAsRecord(v interface{}) (output []bigquery.Value, err error) {
 	m, ok := v.(map[string]interface{})
 	if !ok {
 		return nil, errors.New("not an object")
 	}
-	ret := make([]bigquery.Value, r.count)
-	var err error
+	output = make([]bigquery.Value, r.count)
 	for k, v := range m {
-		if p, ok := r.names[k]; ok {
-			if ret[p.position], err = p.parser.Parse(v); err != nil {
+		if p, ok := r.fields[k]; ok {
+			fmt.Printf("found %q\n", k)
+			if output[p.position], err = p.parser.Parse(v); err != nil {
 				glog.Error(err)
 			}
 		} else {
 			glog.Errorf("No column parser for key %q", k)
 		}
 	}
-	return ret, nil
+	return output, nil
 }
 
-func (r *Record) addField(p Parser, names ...string) {
-	f := field{
-		parser:   p,
-		position: r.count,
+func (r *Record) Parse(v interface{}) (bigquery.Value, error) {
+	return r.ParseAsRecord(v)
+}
+
+func (r *Record) addField(parser Parser, index int, names ...string) {
+	f := Field{
+		position: index,
+		parser:   parser,
 	}
-	r.count++
 	for _, n := range names {
-		r.names[n] = f
+		r.fields[n] = f
 	}
 }
 
-// FromSchema creates a Record parser from a bigquery.Schema. The record parser is configured
+func newRecord(count int) *Record {
+	return &Record{
+		count:  count,
+		fields: make(map[string]Field),
+	}
+}
+
+// NewRecord creates a Record parser from a bigquery.Schema. The record parser is configured
 // to match JSON keys to column names, case-insensitively, unless the column's description
 // in Bigquery contains a struct-like tag resembling `json:"foo"`, in which case "foo" will
 // be used as the JSON key to match for this column.
-func FromSchema(s bigquery.Schema) (*Record, error) {
-	rp := newRecord()
-	for _, fs := range s {
+func NewRecord(s bigquery.Schema) (*Record, error) {
+	root := newRecord(len(s))
+	for i, fs := range s {
 		names := []string{fs.Name, strings.ToLower(fs.Name)}
 		tags, err := structtag.Parse(fs.Description)
 		if err == nil {
@@ -109,15 +111,22 @@ func FromSchema(s bigquery.Schema) (*Record, error) {
 			}
 		}
 		switch fs.Type {
-		case "STRING":
-			rp.addField(String{}, names...)
-		case "INTEGER":
-			rp.addField(Integer{}, names...)
+		case bigquery.StringFieldType:
+			root.addField(String{}, i, names...)
+		case bigquery.IntegerFieldType:
+			root.addField(Integer{}, i, names...)
 		case bigquery.TimestampFieldType:
-			rp.addField(Timestamp{}, names...)
+			root.addField(Timestamp{}, i, names...)
+		case bigquery.RecordFieldType:
+			if r, err := NewRecord(fs.Schema); err == nil {
+				root.addField(r, i, names...)
+			} else {
+				return nil, err
+			}
 		default:
-			return nil, errors.New("unknown BQ schema type")
+			// return nil, fmt.Errorf("unknown BQ schema type %q", fs.Type)
+			glog.Errorf("unknown BQ schema type %q", fs.Type)
 		}
 	}
-	return rp, nil
+	return root, nil
 }

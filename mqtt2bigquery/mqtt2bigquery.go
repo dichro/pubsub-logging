@@ -40,7 +40,7 @@ func main() {
 	if err != nil {
 		glog.Fatal(err)
 	}
-	parser, err := parser.FromSchema(md.Schema)
+	parser, err := parser.NewRecord(md.Schema)
 	if err != nil {
 		glog.Exit(err)
 	}
@@ -92,7 +92,7 @@ func (b *Buffer) Add(c paho.Client, m paho.Message) {
 		return
 	}
 	glog.V(1).Infof("extracted messages %#v", js)
-	msg, err := b.parser.ParseRecord(js)
+	msg, err := b.parser.ParseAsRecord(js)
 	if err != nil {
 		glog.Error(err)
 		return
