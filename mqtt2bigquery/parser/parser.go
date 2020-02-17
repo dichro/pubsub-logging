@@ -36,7 +36,6 @@ func (Integer) Parse(v interface{}) (bigquery.Value, error) {
 	case float64:
 		return n, nil
 	default:
-		fmt.Printf("%#v\n", v)
 		return nil, errors.New("invalid type for INTEGER")
 	}
 }
@@ -73,7 +72,6 @@ func (r *Record) ParseAsRecord(v interface{}) (output []bigquery.Value, err erro
 	output = make([]bigquery.Value, r.count)
 	for k, v := range m {
 		if p, ok := r.fields[k]; ok {
-			fmt.Printf("found %q\n", k)
 			if output[p.position], err = p.parser.Parse(v); err != nil {
 				glog.Error(err)
 			}
@@ -119,25 +117,53 @@ func NewRecord(s bigquery.Schema) (*Record, error) {
 				names = []string{tag.Name}
 			}
 		}
+		var p Parser
 		switch fs.Type {
 		case bigquery.StringFieldType:
-			root.addField(String{}, i, names...)
+			p = String{}
 		case bigquery.IntegerFieldType:
-			root.addField(Integer{}, i, names...)
+			p = Integer{}
 		case bigquery.TimestampFieldType:
+			p = Timestamp{}
 			root.addField(Timestamp{}, i, names...)
 		case bigquery.BooleanFieldType:
-			root.addField(Boolean{}, i, names...)
+			p = Boolean{}
 		case bigquery.RecordFieldType:
 			if r, err := NewRecord(fs.Schema); err == nil {
-				root.addField(r, i, names...)
+				p = r
 			} else {
 				return nil, err
 			}
 		default:
 			// return nil, fmt.Errorf("unknown BQ schema type %q", fs.Type)
 			glog.Errorf("unknown BQ schema type %q", fs.Type)
+			continue
+		}
+		if fs.Repeated {
+			root.addField(&Repeated{p}, i, names...)
+		} else {
+			root.addField(p, i, names...)
 		}
 	}
 	return root, nil
+}
+
+// Repeated wraps a Parser to generate REPEATED column values.
+type Repeated struct {
+	parser Parser
+}
+
+func (r *Repeated) Parse(v interface{}) (bigquery.Value, error) {
+	m, ok := v.([]interface{})
+	if !ok {
+		return make([]bigquery.Value, 0), errors.New("not an array")
+	}
+	output := make([]bigquery.Value, len(m))
+	var err error
+	for i, v := range m {
+		if output[i], err = r.parser.Parse(v); err != nil {
+			return nil, err
+		}
+	}
+	return output, nil
 }
