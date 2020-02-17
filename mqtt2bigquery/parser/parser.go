@@ -41,6 +41,15 @@ func (Integer) Parse(v interface{}) (bigquery.Value, error) {
 	}
 }
 
+type Boolean struct{}
+
+func (Boolean) Parse(v interface{}) (bigquery.Value, error) {
+	if b, ok := v.(bool); ok {
+		return b, nil
+	}
+	return nil, errors.New("invalid type for BOOLEAN")
+}
+
 // Parser parses a JSON value into a BQ type
 type Parser interface {
 	Parse(interface{}) (bigquery.Value, error)
@@ -117,6 +126,8 @@ func NewRecord(s bigquery.Schema) (*Record, error) {
 			root.addField(Integer{}, i, names...)
 		case bigquery.TimestampFieldType:
 			root.addField(Timestamp{}, i, names...)
+		case bigquery.BooleanFieldType:
+			root.addField(Boolean{}, i, names...)
 		case bigquery.RecordFieldType:
 			if r, err := NewRecord(fs.Schema); err == nil {
 				root.addField(r, i, names...)
