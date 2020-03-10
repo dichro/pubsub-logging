@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -47,6 +48,15 @@ func (Boolean) Parse(v interface{}) (bigquery.Value, error) {
 		return b, nil
 	}
 	return nil, errors.New("invalid type for BOOLEAN")
+}
+
+type Bytes struct{}
+
+func (Bytes) Parse(v interface{}) (bigquery.Value, error) {
+	if s, ok := v.(string); ok {
+		return base64.StdEncoding.DecodeString(s)
+	}
+	return nil, errors.New("invalid type for BYTES")
 }
 
 // Parser parses a JSON value into a BQ type
@@ -128,6 +138,8 @@ func NewRecord(s bigquery.Schema) (*Record, error) {
 			root.addField(Timestamp{}, i, names...)
 		case bigquery.BooleanFieldType:
 			p = Boolean{}
+		case bigquery.BytesFieldType:
+			p = Bytes{}
 		case bigquery.RecordFieldType:
 			if r, err := NewRecord(fs.Schema); err == nil {
 				p = r
