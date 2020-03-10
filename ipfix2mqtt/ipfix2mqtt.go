@@ -1,3 +1,4 @@
+// This program receives IPFIX messages and publishes them as JSON on an MQTT topic.
 package main
 
 import (
