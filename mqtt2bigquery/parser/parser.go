@@ -19,6 +19,10 @@ func (Timestamp) Parse(v interface{}) (bigquery.Value, error) {
 	if s, ok := v.(string); ok {
 		return time.Parse(time.RFC3339Nano, s)
 	}
+	if n, ok := v.(float64); ok {
+		// treat it as a unix timestamp
+		return n, nil
+	}
 	return nil, errors.New("invalid type for TIMESTAMP")
 }
 
