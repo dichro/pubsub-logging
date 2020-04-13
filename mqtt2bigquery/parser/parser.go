@@ -43,15 +43,15 @@ func (String) Parse(v interface{}) (bigquery.Value, error) {
 	return fmt.Sprint(v), nil
 }
 
-// Integer converts a JSON value to an INTEGER.
-type Integer struct{}
+// Numeric converts a JSON value to an INTEGER or FLOAT.
+type Numeric struct{}
 
-func (Integer) Parse(v interface{}) (bigquery.Value, error) {
+func (Numeric) Parse(v interface{}) (bigquery.Value, error) {
 	switch n := v.(type) {
 	case float64:
 		return n, nil
 	default:
-		return nil, errors.New("invalid type for INTEGER")
+		return nil, errors.New("invalid type for INTEGER/FLOAT")
 	}
 }
 
@@ -146,7 +146,9 @@ func NewRecord(s bigquery.Schema) (*Record, error) {
 		case bigquery.StringFieldType:
 			p = String{}
 		case bigquery.IntegerFieldType:
-			p = Integer{}
+			p = Numeric{}
+		case bigquery.FloatFieldType:
+			p = Numeric{}
 		case bigquery.TimestampFieldType:
 			p = Timestamp{}
 			root.addField(Timestamp{}, i, names...)
