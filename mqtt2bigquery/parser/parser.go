@@ -15,8 +15,18 @@ import (
 // Timestamp converts a JSON value to a TIMESTAMP.
 type Timestamp struct{}
 
+var TimeFormats = []string{
+	time.RFC3339Nano,
+	"2006-01-02 15:04:05",
+}
+
 func (Timestamp) Parse(v interface{}) (bigquery.Value, error) {
 	if s, ok := v.(string); ok {
+		for _, tf := range TimeFormats {
+			if t, err := time.Parse(tf, s); err == nil {
+				return t, err
+			}
+		}
 		return time.Parse(time.RFC3339Nano, s)
 	}
 	if n, ok := v.(float64); ok {

@@ -67,3 +67,27 @@ func TestRecord_Nested(t *testing.T) {
 		t.Errorf("values[3] = %f; want %f", got, want)
 	}
 }
+
+func TestTimestamp_ParseString(t *testing.T) {
+	p := Timestamp{}
+	for _, ts := range []struct {
+		timestamp, layout string
+	}{
+		{"2020-01-06T04:34:47.057492873Z", time.RFC3339Nano},
+		{"2020-04-12 15:31:40", "2006-01-02 15:04:05"},
+	} {
+		gotV, err := p.Parse(ts.timestamp)
+		if err != nil {
+			t.Errorf(`error %v parsing %s`, err, ts.timestamp)
+			continue
+		}
+		want, err := time.Parse(ts.layout, ts.timestamp)
+		if err != nil {
+			t.Fatalf(`failed to parse timeout %v with layout %v: %v`, ts.timestamp, ts.layout, err)
+		}
+		got := gotV.(time.Time)
+		if !want.Equal(got) {
+			t.Errorf("timestamp %s parsed as %s instead of %s", ts.timestamp, got, want)
+		}
+	}
+}
